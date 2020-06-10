@@ -130,6 +130,10 @@ preprocess_input = get_preprocessing_fn('resnet18', pretrained='imagenet')
 |timm-efficientnet-b7            |imagenet<br>advprop<br>noisy-student|63M                             |
 |timm-efficientnet-b8            |imagenet<br>advprop             |84M                             |
 |timm-efficientnet-l2            |noisy-student                   |474M                            |
+|resnest50                       |imagenet                        |25M                             |
+|resnest101                      |imagenet                        |46M                             |
+|resnest200                      |imagenet                        |68M                             |
+|resnest269                      |imagenet                        |108M                            |
 
 ### Models API <a name="api"></a>
 

@@ -12,6 +12,8 @@ from .efficientnet import efficient_net_encoders
 from .mobilenet import mobilenet_encoders
 from .xception import xception_encoders
 from .timm_efficientnet import timm_efficientnet_encoders
+from .resnest import resnest_encoders
+
 
 from ._preprocessing import preprocess_input
 
@@ -27,6 +29,7 @@ encoders.update(efficient_net_encoders)
 encoders.update(mobilenet_encoders)
 encoders.update(xception_encoders)
 encoders.update(timm_efficientnet_encoders)
+encoders.update(resnest_encoders)
 
 
 def get_encoder(name, in_channels=3, depth=5, weights=None):
