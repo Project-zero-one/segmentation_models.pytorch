@@ -30,19 +30,31 @@ class Epoch:
     def batch_update(self, x, y):
         raise NotImplementedError
 
-    def on_epoch_start(self):
+    def on_epoch_start(self, logs=None):
+        pass
+
+    def on_epoch_end(self, logs=None):
+        pass
+
+    def on_batch_start(self, logs=None):
+        pass
+
+    def on_batch_end(self, logs=None):
         pass
 
     def run(self, dataloader):
 
-        self.on_epoch_start()
-
-        logs = {}
+        self.logs = {}
         loss_meter = AverageValueMeter()
         metrics_meters = {metric.__name__: AverageValueMeter() for metric in self.metrics}
 
+        self.on_epoch_start(self.logs)
+
         with tqdm(dataloader, desc=self.stage_name, file=sys.stdout, disable=not (self.verbose)) as iterator:
             for x, y in iterator:
+
+                self.on_batch_start(self.logs)
+
                 x, y = x.to(self.device), y.to(self.device)
                 loss, y_pred = self.batch_update(x, y)
 
@@ -50,25 +62,31 @@ class Epoch:
                 loss_value = loss.cpu().detach().numpy()
                 loss_meter.add(loss_value)
                 loss_logs = {self.loss.__name__: loss_meter.mean}
-                logs.update(loss_logs)
+                self.logs.update(loss_logs)
 
                 # update metrics logs
                 for metric_fn in self.metrics:
                     metric_value = metric_fn(y_pred, y).cpu().detach().numpy()
                     metrics_meters[metric_fn.__name__].add(metric_value)
                 metrics_logs = {k: v.mean for k, v in metrics_meters.items()}
-                logs.update(metrics_logs)
+                self.logs.update(metrics_logs)
 
                 if self.verbose:
-                    s = self._format_logs(logs)
+                    s = self._format_logs(self.logs)
                     iterator.set_postfix_str(s)
 
-        return logs
+                self.on_batch_end(self.logs)
+        self.on_epoch_end(self.logs)
+
+        return self.logs
 
 
 class TrainEpoch(Epoch):
 
-    def __init__(self, model, loss, metrics, optimizer, device='cpu', verbose=True):
+    def __init__(
+            self, model, loss, metrics, optimizer,
+            callbacks=None, device='cpu', verbose=True
+    ):
         super().__init__(
             model=model,
             loss=loss,
@@ -78,8 +96,9 @@ class TrainEpoch(Epoch):
             verbose=verbose,
         )
         self.optimizer = optimizer
+        self.callbacks = callbacks
 
-    def on_epoch_start(self):
+    def on_epoch_start(self, logs=None):
         self.model.train()
 
     def batch_update(self, x, y):
@@ -102,8 +121,9 @@ class ValidEpoch(Epoch):
             device=device,
             verbose=verbose,
         )
+        self.max_score = 0
 
-    def on_epoch_start(self):
+    def on_epoch_start(self, logs=None):
         self.model.eval()
 
     def batch_update(self, x, y):
@@ -111,3 +131,10 @@ class ValidEpoch(Epoch):
             prediction = self.model.forward(x)
             loss = self.loss(prediction, y)
         return loss, prediction
+
+    # def on_epoch_end(self, logs):
+    #     # Model check point
+    #     if self.max_score < logs['iou_score']:
+    #         self.max_score = logs['iou_score']
+    #         torch.save(self.model, './best_model.pth')
+    #         print('Model saved!')
