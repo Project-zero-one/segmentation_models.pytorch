@@ -184,7 +184,9 @@ $ pip install segmentation-models-pytorch
 ````
 Latest version from source:
 ```bash
-$ pip install git+https://github.com/qubvel/segmentation_models.pytorch
+$ pip install git+https://github.com/qubvel/segmentation_models.pytorch@master
+# In addition, you need to install resnest only if you use ResNeSt backbone
+$ pip install resnest --no-deps
 ````
 
 ### Competitions won with the library
