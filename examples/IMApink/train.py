@@ -12,7 +12,7 @@ from metrics import calculate_dice
 from utils import get_preprocessing
 
 
-def get_training_augmentation():
+def get_training_augmentation(mean, std):
     train_transform = [
         albu.Resize(height=360, width=640),
         albu.RandomCrop(height=256, width=512, always_apply=True),
@@ -21,7 +21,6 @@ def get_training_augmentation():
 
 
 def get_validation_augmentation():
-    """Add paddings to make image shape divisible by 32"""
     test_transform = [
         albu.Resize(height=360, width=640),
         albu.CenterCrop(height=256, width=512, always_apply=True)
@@ -40,7 +39,7 @@ if __name__ == "__main__":
     import ssl
     ssl._create_default_https_context = ssl._create_unverified_context
 
-    os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 
     # Set random seed
     np.random.seed(0)
@@ -49,22 +48,22 @@ if __name__ == "__main__":
     ### config ###
     # The type of CLASSES is `dict` or `list`
     CLASSES = {'IMApink': 1, 'IMAroot': 1}
-    # CLASSES = ['IMApink']
 
     # background(`1`) + objects(`len(CLASSES)`)
     N_CLASSES = 1 + 1
 
     DATA_DIR = '/data/input/IMA_root'
     SEASON = 'season5*'
+    MODEL_SAVE_PATH = 'deeplabv3p-resnest50_multiclass'
 
     MODEL = 'DeepLabV3Plus'
-    ENCODER = 'timm-efficientnet-l2'
-    ENCODER_WEIGHTS = 'noisy-student'
-    BATCH_SIZE = 7 
+    ENCODER = 'resnest50'
+    ENCODER_WEIGHTS = 'imagenet'
+    BATCH_SIZE = 7
     LR = 0.0001
     CLASS_WEIGHTS = None  # [1.0, 1.0]
-    LAMBDA = 0.6
-    EPOCHS = 5
+    LAMBDA = 0.1  # dice * LAMBDA + focal * (1 - LAMBDA)
+    EPOCHS = 10
 
     # could be `sigmoid` for binary class or None for logits or 'softmax2d' for multicalss segmentation
     ACTIVATION = 'sigmoid' if N_CLASSES == 1 else 'softmax2d'
@@ -84,21 +83,23 @@ if __name__ == "__main__":
         classes=N_CLASSES,
         activation=ACTIVATION,
     )
+    # model = torch.nn.DataParallel(model)
 
     # create loss function
-    dice_loss = losses.CategoricalDiceLoss(CLASS_WEIGHTS)
-    focal_loss = losses.CategoricalFocalLoss(gamma=5.0)
-    focal_dice_loss = LAMBDA * dice_loss + (1 - LAMBDA) * focal_loss
+    # dice_loss = losses.CategoricalDiceLoss()
+    # focal_loss = losses.CategoricalFocalLoss(gamma=5.0)
+    focal_dice_loss = losses.CategoricalFocalDiceLoss(factor=LAMBDA, gamma=5.0)
+    # focal_dice_loss = losses.BinaryFocalDiceLoss(factor=LAMBDA, gamma=5.0)
 
     # set metrics
     metrics = [
-        smp.utils.metrics.IoU(threshold=0.5, ignore_channels=[0]),
-        smp.utils.metrics.Fscore(threshold=0.5, ignore_channels=[0]),
+        smp.utils.metrics.IoU(threshold=0.5, ignore_channels=[0] if N_CLASSES != 1 else None),
+        smp.utils.metrics.Fscore(threshold=0.5, ignore_channels=[0] if N_CLASSES != 1 else None),
     ]
 
     # set optimizer
     optimizer = torch.optim.Adam([
-        dict(params=model.parameters(), lr=0.0001),
+        dict(params=model.parameters(), lr=LR),
     ])
 
     # create Dataset and DataLoader
@@ -149,18 +150,18 @@ if __name__ == "__main__":
 
     for i in range(0, EPOCHS):
 
-        print('\nEpoch: {}'.format(i))
+        print('\nEpoch: {}'.format(i + 1))
         train_logs = train_epoch.run(train_loader)
         valid_logs = valid_epoch.run(valid_loader)
 
         # callbacks (save model, change lr, etc.) #
         ## calcurate dice on all validation data ##
-        dice_of_all = calculate_dice(valid_loader, model, DEVICE, ignore_channels=[0])
+        dice_of_all = calculate_dice(valid_loader, model, DEVICE, ignore_channels=[0] if N_CLASSES != 1 else None)
 
         ## model checkpoint ##
         if max_score < dice_of_all:
             max_score = dice_of_all
-            torch.save(model, './best_model.pth')
+            torch.save(model, f'{MODEL_SAVE_PATH}.pth')
             print('Model saved!')
 
         ## learning rate schedule ##

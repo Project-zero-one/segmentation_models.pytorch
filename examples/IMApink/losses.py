@@ -14,30 +14,20 @@ class CategoricalDiceLoss(base.Loss):
         self.ignore_channels = ignore_channels
         self.class_weights = class_weights
 
-    def forward(self, y_pred, y_true):
+    def forward(self, pr, gt):
         """
-        :param y_pred: shape=(N, C, H, W)
-        :param y_true: shape=(N, C, H, W)
+        :param pr: shape=(N, C, H, W)
+        :param gt: shape=(N, C, H, W)
         :return : shape=(1,)
         """
-        # class_weightsがない場合は1にする
-        if self.class_weights is None:
-            self.class_weights = torch.ones(y_pred.shape[1]).to(y_pred.device)
+        pr = self.activation(pr)
 
-        y_pred = self.activation(y_pred)
-
-        dice_loss = 0
-        for c in range(y_pred.shape[1]):
-            if self.ignore_channels is None or not c in self.ignore_channels:
-                dice_loss += self.class_weights[c] * (
-                    1 - F.f_score(
-                        y_pred[:, c], y_true[:, c],
-                        beta=self.beta,
-                        eps=self.eps,
-                        threshold=None,
-                    )
-                )
-        return dice_loss
+        return categorical_dice_loss(
+            pr, gt,
+            self.class_weights,
+            self.eps, self.beta,
+            self.ignore_channels
+        )
 
 
 class CategoricalFocalLoss(base.Loss):
@@ -51,25 +41,55 @@ class CategoricalFocalLoss(base.Loss):
     Returns:
         A callable ``categorical_focal_loss`` instance. Can be used in ``model.compile(...)`` function
         or combined with other losses.
-    Example:
-        .. code:: python
-            loss = CategoricalFocalLoss()
-            model.compile('SGD', loss=loss)
     """
 
-    def __init__(self, alpha=0.25, gamma=2., ignore_channels=None, **kwargs):
+    def __init__(self, alpha=0.25, gamma=2., activation=None, ignore_channels=None, **kwargs):
         super().__init__(**kwargs)
         self.alpha = alpha
         self.gamma = gamma
+        self.activation = base.Activation(activation)
         self.ignore_channels = ignore_channels
 
-    def forward(self, gt, pr):
+    def forward(self, pr, gt):
+        pr = self.activation(pr)
         return categorical_focal_loss(
-            gt, pr,
+            pr, gt,
             alpha=self.alpha,
             gamma=self.gamma,
             ignore_channels=self.ignore_channels,
         )
+
+
+class CategoricalFocalDiceLoss(base.Loss):
+    def __init__(
+        self,
+        factor=0.5,
+        alpha=0.25, gamma=2.,
+        class_weights=None, beta=1.,
+        eps=1e-7, activation=None, ignore_channels=None,
+        **kwargs
+    ):
+        super().__init__(**kwargs)
+        # focalとdiceの足し合わせる比率
+        self.factor = factor
+        # focal loss
+        self.alpha = alpha
+        self.gamma = gamma
+        # dice loss
+        self.class_weights = class_weights
+        self.beta = beta
+        # 共通
+        self.eps = eps
+        self.activation = base.Activation(activation)
+        self.ignore_channels = ignore_channels
+
+    def forward(self, pr, gt):
+        pr = self.activation(pr)
+
+        focal_loss = categorical_focal_loss(pr, gt, self.gamma, self.alpha, self.ignore_channels, self.eps)
+        dice_loss = categorical_dice_loss(pr, gt, self.class_weights, self.eps, self.beta, self.ignore_channels)
+
+        return self.factor * focal_loss + (1 - self.factor) * dice_loss
 
 
 class BinaryFocalLoss(base.Loss):
@@ -88,20 +108,71 @@ class BinaryFocalLoss(base.Loss):
         model.compile('SGD', loss=loss)
     """
 
-    def __init__(self, alpha=0.25, gamma=2., **kwargs):
+    def __init__(self, alpha=0.25, gamma=2., activation=None, **kwargs):
         super().__init__(**kwargs)
         self.alpha = alpha
         self.gamma = gamma
+        self.activation = base.Activation(activation)
 
-    def forward(self, gt, pr):
+    def forward(self, pr, gt):
+        pr = self.activation(pr)
         return binary_focal_loss(
-            gt, pr,
+            pr, gt,
             alpha=self.alpha,
             gamma=self.gamma
         )
 
 
-def categorical_focal_loss(gt, pr, gamma=2.0, alpha=0.25, ignore_channels=None, eps=1e-7, **kwargs):
+class BinaryFocalDiceLoss(base.Loss):
+    def __init__(
+        self,
+        factor=0.5,
+        alpha=0.25, gamma=2.,
+        beta=1.,
+        eps=1e-7, activation=None,
+        **kwargs
+    ):
+        super().__init__(**kwargs)
+        # focalとdiceの足し合わせる比率
+        self.factor = factor
+        # focal loss
+        self.alpha = alpha
+        self.gamma = gamma
+        # dice loss
+        self.beta = beta
+        # 共通
+        self.eps = eps
+        self.activation = base.Activation(activation)
+
+    def forward(self, pr, gt):
+        pr = self.activation(pr)
+
+        focal_loss = binary_focal_loss(pr, gt, self.gamma, self.alpha, self.eps)
+        dice_loss = binary_dice_loss(pr, gt, self.eps, self.beta)
+
+        return self.factor * focal_loss + (1 - self.factor) * dice_loss
+
+
+def categorical_dice_loss(pr, gt, class_weights=None, eps=1e-7, beta=1., ignore_channels=None):
+    # class_weightsがない場合は1にする
+    if class_weights is None:
+        class_weights = torch.ones(pr.shape[1]).to(pr.device)
+
+    dice_loss = 0
+    for c in range(pr.shape[1]):
+        if ignore_channels is None or not c in ignore_channels:
+            dice_loss += class_weights[c] * (
+                1 - F.f_score(
+                    pr[:, c], gt[:, c],
+                    beta=beta,
+                    eps=eps,
+                    threshold=None,
+                )
+            )
+    return dice_loss
+
+
+def categorical_focal_loss(pr, gt, gamma=2.0, alpha=0.25, ignore_channels=None, eps=1e-7, **kwargs):
     r"""Implementation of Focal Loss from the paper in multiclass classification
     Formula:
         loss = - gt * alpha * ((1 - pr)^gamma) * log(pr)
@@ -122,7 +193,7 @@ def categorical_focal_loss(gt, pr, gamma=2.0, alpha=0.25, ignore_channels=None, 
     return torch.mean(loss)
 
 
-def binary_focal_loss(gt, pr, gamma=2.0, alpha=0.25, eps=1e-7, **kwargs):
+def binary_focal_loss(pr, gt, gamma=2.0, alpha=0.25, eps=1e-7, **kwargs):
     r"""Implementation of Focal Loss from the paper in binary classification
     Formula:
         loss = - gt * alpha * ((1 - pr)^gamma) * log(pr) \
@@ -140,3 +211,12 @@ def binary_focal_loss(gt, pr, gamma=2.0, alpha=0.25, eps=1e-7, **kwargs):
     loss_0 = - (1 - gt) * ((1 - alpha) * torch.pow(pr, gamma) * torch.log(1 - pr + eps))
 
     return torch.mean(loss_0 + loss_1)
+
+
+def binary_dice_loss(pr, gt, beta=1., eps=1e-7, **kwargs):
+    return 1 - F.f_score(
+        pr, gt,
+        beta,
+        eps,
+        threshold=None,
+    )

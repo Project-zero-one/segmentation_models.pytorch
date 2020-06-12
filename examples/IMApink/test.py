@@ -20,19 +20,20 @@ def resize():
 
 
 if __name__ == "__main__":
-    os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 
     # Set random seed
     np.random.seed(0)
     torch.manual_seed(0)
 
     ### config ###
-    ENCODER = 'se_resnet50'
+    ENCODER = 'resnest269'
     ENCODER_WEIGHTS = 'imagenet'
     CLASSES = {'IMApink': 1, 'IMAroot': 1}
     N_CLASSES = 1 + 1
     DATA_DIR = '/data/input/IMA_root'
     SEASON = 'season5*'
+    MODEL_PATH = 'pan-resnest269_multiclass.pth'
     NUM_VIS = 10
 
     DEVICE = 'cuda'
@@ -42,14 +43,14 @@ if __name__ == "__main__":
     y_test_dir = os.path.join(DATA_DIR, 'validation', SEASON, '*/label')
 
     # load best saved checkpoint
-    best_model = torch.load('./best_model.pth')
+    best_model = torch.load(MODEL_PATH)
 
     # create loss function and metrics
-    loss = losses.CategoricalDiceLoss()
+    loss = smp.utils.losses.DiceLoss()
 
     metrics = [
-        smp.utils.metrics.IoU(threshold=0.5, ignore_channels=[0]),
-        smp.utils.metrics.Fscore(threshold=0.5, ignore_channels=[0]),
+        smp.utils.metrics.IoU(threshold=0.5, ignore_channels=[0] if N_CLASSES != 1 else None),
+        smp.utils.metrics.Fscore(threshold=0.5, ignore_channels=[0] if N_CLASSES != 1 else None),
     ]
 
     # create test dataset
@@ -74,7 +75,7 @@ if __name__ == "__main__":
     )
 
     # logs = test_epoch.run(test_loader)
-    dice_of_all = calculate_dice(test_loader, best_model, DEVICE, ignore_channels=[0])
+    dice_of_all = calculate_dice(test_loader, best_model, DEVICE, ignore_channels=[0] if N_CLASSES != 1 else None)
 
     # visualize test data
     image_batch = []
@@ -84,6 +85,7 @@ if __name__ == "__main__":
         image, gt_mask = test_dataset[n]
         image_batch.append(image)
         gt_mask_batch.append(gt_mask)
+
     image_batch = np.array(image_batch)
     gt_mask_batch = np.array(gt_mask_batch)
 
@@ -95,6 +97,8 @@ if __name__ == "__main__":
 
     visualize(
         image=denormalize(image_batch),
-        ground_truth_mask=np.argmax(gt_mask_batch, axis=1),
-        predicted_mask=np.argmax(pr_mask_batch, axis=1)
+        # ground_truth_mask=gt_mask_batch.squeeze(),  # binary
+        # predicted_mask=pr_mask_batch.squeeze(),  # binary
+        ground_truth_mask=np.argmax(gt_mask_batch, axis=1),  # categorical
+        predicted_mask=np.argmax(pr_mask_batch, axis=1),  # categorical
     )
