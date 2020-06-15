@@ -54,6 +54,7 @@ def get_pretrained_settings(name):
     }
 
 
+# see https://github.com/zhanghang1989/ResNeSt/blob/master/resnest/torch/resnet.py
 resnest_encoders = {
     "resnest50": {
         "encoder": ResNestEncoder,
