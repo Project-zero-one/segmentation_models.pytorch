@@ -90,7 +90,7 @@ def post_processing(output, area_threshold=0):
     mask = output.squeeze(3) if output.shape[3] == 1 else np.argmax(output, axis=-1)  # binaryではargmaxしない
     mask = mask.astype('uint8')
     # 小さい面積消去
-    if not area_threshold:
+    if area_threshold:
         mask = delete_small_mask(mask, area_threshold)
 
     return mask
