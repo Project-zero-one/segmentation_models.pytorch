@@ -96,7 +96,6 @@ class DeepLabV3PlusDecoder(nn.Module):
         )
 
     def forward(self, *features):
-        print("DeepLab decoder", [f.shape for f in features])
         aspp_features = self.aspp(features[-1])
         aspp_features = self.up(aspp_features)
         high_res_features = self.block1(features[-4])

@@ -75,8 +75,8 @@ def make_predict_movie(
 
         # Display the predicted frame
         # N,H,W,C -> H,W,C
-        output = overlay(raw_frame.cpu().numpy().squeeze(0), result.squeeze(0))  # blend
-        # output = surrounding(raw_frame.cpu().numpy().squeeze(0), result.squeeze(0))  # 枠線
+        output = overlay(raw_frame.cpu().numpy().squeeze(0), result)  # blend
+        # output = surrounding(raw_frame.cpu().numpy().squeeze(0), result)  # 枠線
         fps.calculate(output)  # video writeする前に必要
         out.write(output[..., ::-1])  # RGB -> BGR
     out.release()
@@ -88,6 +88,8 @@ def post_processing(output, area_threshold=0):
     output = output.transpose(0, 2, 3, 1)  # N,C,H,W -> N,H,W,C
     # N,H,W,C -> N,H,W
     mask = output.squeeze(3) if output.shape[3] == 1 else np.argmax(output, axis=-1)  # binaryではargmaxしない
+    # N,H,W -> H,W
+    mask = mask.squeeze()
     mask = mask.astype('uint8')
     # 小さい面積消去
     if area_threshold:
@@ -157,12 +159,12 @@ if __name__ == "__main__":
     ### config ###
     ENCODER = 'resnest269'
     ENCODER_WEIGHTS = 'imagenet'
-    MODEL_PATH = 'pan-resnest269_categoricalloss.pth'
-    VIDEO_PATH = '名称未設定.mp4'
-    SAVE_PATH = '名称未設定(1).avi'
+    MODEL_PATH = 'results/pan-resnest269_categoricalloss.pth'
+    VIDEO_PATH = '/data/input/IMA_root/test/名称未設定_01.mp4'
+    SAVE_PATH = 'results/名称未設定_01.avi'
 
     DEVICE = 'cuda'
-    AREA_THRESHOLD = 512 * 256 * 0.1
+    AREA_THRESHOLD = 512 * 256 * 0.05
     ### main ###
     # load best saved checkpoint
     best_model = torch.load(MODEL_PATH)

@@ -32,7 +32,6 @@ class ResNestEncoder(ResNet, EncoderMixin):
         features = []
         for i in range(self._depth + 1):
             x = stages[i](x)
-            print(f"ResNeSt decoder:{stages[i]}", x.shape)
             features.append(x)
 
         return features
@@ -62,7 +61,8 @@ resnest_encoders = {
         "params": dict(block=Bottleneck, layers=[3, 4, 6, 3],
                        radix=2, groups=1, bottleneck_width=64,
                        deep_stem=True, stem_width=32, avg_down=True,
-                       avd=True, avd_first=False, out_channels=(3, 64, 256, 512, 1024, 2048)),
+                       avd=True, avd_first=False, dilation=2,
+                       out_channels=(3, 64, 256, 512, 1024, 2048)),
     },
 
     "resnest101": {
@@ -71,7 +71,8 @@ resnest_encoders = {
         "params": dict(block=Bottleneck, layers=[3, 4, 23, 3],
                        radix=2, groups=1, bottleneck_width=64,
                        deep_stem=True, stem_width=64, avg_down=True,
-                       avd=True, avd_first=False, out_channels=(3, 64, 256, 512, 1024, 2048)),
+                       avd=True, avd_first=False, dilation=2,
+                       out_channels=(3, 64, 256, 512, 1024, 2048)),
     },
 
     "resnest200": {
@@ -80,7 +81,8 @@ resnest_encoders = {
         "params": dict(block=Bottleneck, layers=[3, 24, 36, 3],
                        radix=2, groups=1, bottleneck_width=64,
                        deep_stem=True, stem_width=64, avg_down=True,
-                       avd=True, avd_first=False, out_channels=(3, 64, 256, 512, 1024, 2048)),
+                       avd=True, avd_first=False, dilation=2,
+                       out_channels=(3, 64, 256, 512, 1024, 2048)),
     },
 
     "resnest269": {
@@ -89,6 +91,7 @@ resnest_encoders = {
         "params": dict(block=Bottleneck, layers=[3, 30, 48, 8],
                        radix=2, groups=1, bottleneck_width=64,
                        deep_stem=True, stem_width=64, avg_down=True,
-                       avd=True, avd_first=False, out_channels=(3, 64, 256, 512, 1024, 2048)),
+                       avd=True, avd_first=False, dilation=2,
+                       out_channels=(3, 64, 256, 512, 1024, 2048)),
     },
 }

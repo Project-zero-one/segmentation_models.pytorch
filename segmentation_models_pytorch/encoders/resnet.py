@@ -59,7 +59,6 @@ class ResNetEncoder(ResNet, EncoderMixin):
         features = []
         for i in range(self._depth + 1):
             x = stages[i](x)
-            print(f"ResNet decoder:{stages[i]}", x.shape)
             features.append(x)
 
         return features
