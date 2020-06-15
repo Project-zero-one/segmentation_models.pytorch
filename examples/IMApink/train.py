@@ -1,6 +1,6 @@
 import os
 from dataclasses import dataclass, field, asdict
-import typing
+from typing import List, Union, Optional
 import yaml
 
 import numpy as np
@@ -15,9 +15,9 @@ from metrics import calculate_dice
 from utils import get_preprocessing
 
 
-def get_training_augmentation(mean, std):
+def get_training_augmentation():
     train_transform = [
-        albu.Resize(height=360, width=640),
+        albu.Resize(height=315, width=560),
         albu.RandomCrop(height=256, width=512, always_apply=True),
     ]
     return albu.Compose(train_transform)
@@ -25,7 +25,7 @@ def get_training_augmentation(mean, std):
 
 def get_validation_augmentation():
     test_transform = [
-        albu.Resize(height=360, width=640),
+        albu.Resize(height=315, width=560),
         albu.CenterCrop(height=256, width=512, always_apply=True)
     ]
     return albu.Compose(test_transform)
@@ -168,7 +168,7 @@ class Config:
     MODEL_SAVE_PATH: str = 'deeplabv3p-resnest269_multiclass'
 
     # The type of CLASSES is `dict` or `list`
-    CLASSES = {'IMApink': 1, 'IMAroot': 1}
+    CLASSES: Union[list, dict] = field(default_factory=dict)
 
     # background(`1`) + objects(`len(CLASSES)`)
     N_CLASSES: int = 1 + 1
@@ -177,22 +177,31 @@ class Config:
     ENCODER: str = 'resnest269'
     ENCODER_WEIGHTS: str = 'imagenet'
     LOSS: str = 'CategoricalFocalDiceLoss'
-    loss_params = {
-        "factor": 0.5,  # dice * factor + focal * (1 - factor)
-        "gamma": 5.0,  # focal loss
-    }
+    loss_params: dict = field(default_factory=dict)
 
     BATCH_SIZE: int = 8
     LR: float = 0.0001
-    CLASS_WEIGHTS = None  # [1.0, 1.0]
+    CLASS_WEIGHTS: Optional[List[float]] = None
     EPOCHS: int = 30
 
     # could be `sigmoid` for binary class or None for logits or 'softmax2d' for multicalss segmentation
     ACTIVATION: str = 'sigmoid' if N_CLASSES == 1 else 'softmax2d'
     DEVICE: str = 'cuda'
 
+    def __post_init__(self):
+        # classname mapping
+        self.CLASSES = {'IMApink': 1, 'IMAroot': 1}
+        # class weights of loss func
+        # self.CLASS_WEIGHTS = [1.0, 1.0]
+        # optional params at loss
+        self.loss_params = {
+            "factor": 0.5,  # dice * factor + focal * (1 - factor)
+            "gamma": 5.0,  # focal loss
+        }
+
 
 if __name__ == "__main__":
+    from pprint import pprint
     import ssl
     ssl._create_default_https_context = ssl._create_unverified_context
 
@@ -205,7 +214,7 @@ if __name__ == "__main__":
     config = Config()
     # save train params as yaml
     with open(config.CONFIG_PATH, 'w') as fw:
-        print(asdict(config))
+        pprint(asdict(config))
         fw.write(yaml.dump(asdict(config)))
     # fit
     main(config)
