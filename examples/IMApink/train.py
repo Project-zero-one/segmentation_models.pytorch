@@ -57,12 +57,12 @@ if __name__ == "__main__":
     MODEL_SAVE_PATH = 'deeplabv3p-resnest269_multiclass'
 
     MODEL = 'DeepLabV3Plus'
-    ENCODER = 'resnet50'
+    ENCODER = 'wide_resnet101_2'
     ENCODER_WEIGHTS = 'imagenet'
     BATCH_SIZE = 8
     LR = 0.0001
     CLASS_WEIGHTS = None  # [1.0, 1.0]
-    LAMBDA = 0.1  # dice * LAMBDA + focal * (1 - LAMBDA)
+    LAMBDA = 0.5  # dice * LAMBDA + focal * (1 - LAMBDA)
     EPOCHS = 10
 
     # could be `sigmoid` for binary class or None for logits or 'softmax2d' for multicalss segmentation

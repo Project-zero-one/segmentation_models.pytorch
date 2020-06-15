@@ -230,4 +230,44 @@ resnet_encoders = {
             "width_per_group": 48,
         },
     },
+    "wide_resnet50_2": {
+        "encoder": ResNetEncoder,
+        "pretrained_settings": {
+            "imagenet": {
+                "url": "https://download.pytorch.org/models/wide_resnet50_2-95faca4d.pth",
+                "input_space": "RGB",
+                "input_size": [3, 224, 224],
+                "input_range": [0, 1],
+                "mean": [0.485, 0.456, 0.406],
+                "std": [0.229, 0.224, 0.225],
+                "num_classes": 1000,
+            }
+        },
+        "params": {
+            "out_channels": (3, 64, 256, 512, 1024, 2048),
+            "block": Bottleneck,
+            "layers": [3, 4, 6, 3],
+            "width_per_group": 64 * 2,
+        },
+    },
+    "wide_resnet101_2": {
+        "encoder": ResNetEncoder,
+        "pretrained_settings": {
+            "imagenet": {
+                "url": "https://download.pytorch.org/models/wide_resnet101_2-32ee1156.pth",
+                "input_space": "RGB",
+                "input_size": [3, 224, 224],
+                "input_range": [0, 1],
+                "mean": [0.485, 0.456, 0.406],
+                "std": [0.229, 0.224, 0.225],
+                "num_classes": 1000,
+            }
+        },
+        "params": {
+            "out_channels": (3, 64, 256, 512, 1024, 2048),
+            "block": Bottleneck,
+            "layers": [3, 4, 23, 3],
+            "width_per_group": 64 * 2,
+        },
+    },
 }

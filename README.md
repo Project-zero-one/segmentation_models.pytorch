@@ -134,6 +134,10 @@ preprocess_input = get_preprocessing_fn('resnet18', pretrained='imagenet')
 |resnest101                      |imagenet                        |46M                             |
 |resnest200                      |imagenet                        |68M                             |
 |resnest269                      |imagenet                        |108M                            |
+|wide_resnet50_2                 |imagenet                        |
+68.9M                           |
+|wide_resnet101_2                |imagenet                        |
+126.9M                          |
 
 ### Models API <a name="api"></a>
 
