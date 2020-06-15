@@ -57,24 +57,43 @@ class FPS(object):
 def make_predict_movie(
     dataloader, save_path,
     model, device,
-    area_threshold,
+    area_threshold=0,
 ):
-    # for video write(output)
+    # for video writing(output)
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
     out = cv2.VideoWriter(save_path, fourcc, 30.0, (1280, 720))
     # for calculate frame per second
     fps = FPS()
     for raw_frame, input_image in tqdm(dataloader):
+        # frame読み切ったら抜ける
+        if raw_frame is None:
+            break
+
         x_tensor = input_image.to(device)
         y_pred = model.predict(x_tensor)
-        # channel次元を消す
-        y_pred = y_pred.cpu().numpy().round()  # GPU -> CPU
-        result = y_pred.transpose(0, 2, 3, 1)  # N,C,H,W -> N,H,W,C
+        result = post_processing(y_pred, area_threshold)  # N,C,H,W -> N,H,W
+
         # Display the predicted frame
-        output = overlay(raw_frame.cpu().numpy().squeeze(0), result.squeeze(0), area_threshold)  # N,H,W,C -> H,W,C
+        # N,H,W,C -> H,W,C
+        output = overlay(raw_frame.cpu().numpy().squeeze(0), result.squeeze(0))  # blend
+        # output = surrounding(raw_frame.cpu().numpy().squeeze(0), result.squeeze(0))  # 枠線
         fps.calculate(output)  # video writeする前に必要
         out.write(output[..., ::-1])  # RGB -> BGR
     out.release()
+
+
+def post_processing(output, area_threshold=0):
+    # channel次元を消す
+    output = output.cpu().numpy().round()  # GPU -> CPU
+    output = output.transpose(0, 2, 3, 1)  # N,C,H,W -> N,H,W,C
+    # N,H,W,C -> N,H,W
+    mask = output.squeeze(3) if output.shape[3] == 1 else np.argmax(output, axis=-1)  # binaryではargmaxしない
+    mask = mask.astype('uint8')
+    # 小さい面積消去
+    if not area_threshold:
+        mask = delete_small_mask(mask, area_threshold)
+
+    return mask
 
 
 def overlay(frame, mask, area_threshold=0):
@@ -82,10 +101,6 @@ def overlay(frame, mask, area_threshold=0):
     args: frame: shape=(720, 1280, 3)
          result: shape=(H, W, C)
     """
-    # H,W,C -> H,W
-    mask = mask.squeeze() if mask.shape[2] == 1 else np.argmax(mask, axis=-1)
-    mask = mask.astype('uint8')
-    mask = delete_small_mask(mask, area_threshold)  # 小さい面積消去
     # paletteを埋め込む
     height, width = frame.shape[:2]
     mask_pil = Image.fromarray(mask, mode="P")  # pallete形式で開く
@@ -94,8 +109,27 @@ def overlay(frame, mask, area_threshold=0):
     mask_pil = mask_pil.resize((width, height))
     mask_rgb = np.array(mask_pil.convert("RGB"))  # cv2に戻す
 
-    blend = cv2.addWeighted(src1=frame, alpha=0.9, src2=mask_rgb, beta=0.7, gamma=2.2)
+    blend = cv2.addWeighted(src1=frame, alpha=0.9, src2=mask_rgb, beta=0.3, gamma=2.2)
     return blend
+
+
+def surrounding(frame, mask):
+    height, width = frame.shape[:2]
+    # 元の画像が加工されてしまうのを防ぐ
+    gray = mask.copy()
+    gray = cv2.resize(gray, (width, height))
+    output = frame.copy()
+    # 2値化&島を認識
+    _, bw = cv2.threshold(gray, 1, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+    contours, hierarchy = cv2.findContours(bw, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+
+    if len(contours) == 0:
+        return output
+
+    for i in range(0, len(contours)):
+        cv2.drawContours(output, contours, i, (0, 255, 0), 2)
+
+    return output
 
 
 def delete_small_mask(mask: np.array, threshold: int) -> np.array:
@@ -123,12 +157,12 @@ if __name__ == "__main__":
     ### config ###
     ENCODER = 'resnest269'
     ENCODER_WEIGHTS = 'imagenet'
-    MODEL_PATH = 'pan-resnest269_multiclass.pth'
-    VIDEO_PATH = '/data/input/IMA_root/test/通常速度.mp4'
-    SAVE_PATH = '通常速度.avi'
+    MODEL_PATH = 'pan-resnest269_categoricalloss.pth'
+    VIDEO_PATH = '名称未設定.mp4'
+    SAVE_PATH = '名称未設定(1).avi'
 
     DEVICE = 'cuda'
-    AREA_THRESHOLD = 512 * 256 * 0.01
+    AREA_THRESHOLD = 512 * 256 * 0.1
     ### main ###
     # load best saved checkpoint
     best_model = torch.load(MODEL_PATH)

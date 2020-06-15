@@ -97,6 +97,11 @@ class VideoDataset(BaseDataset):
         # read data
         self.images_fps.set(cv2.CAP_PROP_POS_FRAMES, i)
         ret, frame = self.images_fps.read()
+        
+        # frameを読み切ったらNoneを返す
+        if ret is False:
+            return None, None
+        
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         image = frame.copy()  # augmentation, preprocessingをする用
 

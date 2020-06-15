@@ -39,7 +39,7 @@ if __name__ == "__main__":
     import ssl
     ssl._create_default_https_context = ssl._create_unverified_context
 
-    os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
     # Set random seed
     np.random.seed(0)
@@ -54,12 +54,12 @@ if __name__ == "__main__":
 
     DATA_DIR = '/data/input/IMA_root'
     SEASON = 'season5*'
-    MODEL_SAVE_PATH = 'deeplabv3p-resnest50_multiclass'
+    MODEL_SAVE_PATH = 'deeplabv3p-resnest269_multiclass'
 
     MODEL = 'DeepLabV3Plus'
-    ENCODER = 'resnest50'
+    ENCODER = 'resnet50'
     ENCODER_WEIGHTS = 'imagenet'
-    BATCH_SIZE = 7
+    BATCH_SIZE = 8
     LR = 0.0001
     CLASS_WEIGHTS = None  # [1.0, 1.0]
     LAMBDA = 0.1  # dice * LAMBDA + focal * (1 - LAMBDA)
@@ -123,8 +123,19 @@ if __name__ == "__main__":
         binary_output=True if N_CLASSES == 1 else False,
     )
 
-    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=12)
-    valid_loader = DataLoader(valid_dataset, batch_size=1, shuffle=False, num_workers=4)
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=BATCH_SIZE,
+        shuffle=True,
+        num_workers=12,
+        drop_last=True
+    )
+    valid_loader = DataLoader(
+        valid_dataset,
+        batch_size=1,
+        shuffle=False,
+        num_workers=4,
+    )
 
     # create epoch runners
     # it is a simple loop of iterating over dataloader`s samples
