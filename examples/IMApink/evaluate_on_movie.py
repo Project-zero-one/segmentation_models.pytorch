@@ -152,10 +152,10 @@ def delete_small_mask(mask: np.array, threshold: int) -> np.array:
     if len(contours) == 0:
         return mask
 
-    for i in range(0, len(contours)):
-        area = cv2.contourArea(contours[i])
+    for cnt in contours:
+        area = cv2.contourArea(cnt)
         if area < threshold:
-            cv2.drawContours(gray, contours, i, 0, -1)
+            cv2.drawContours(gray, [cnt], 0, 0, -1)
     return gray
 
 

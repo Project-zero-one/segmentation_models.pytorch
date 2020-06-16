@@ -3,9 +3,10 @@ from dataclasses import dataclass, field, asdict
 from typing import List, Union, Optional
 import yaml
 
-import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
+from glob import glob
+import numpy as np
 import torch
 from torch.utils.data import DataLoader
 import albumentations as albu
@@ -43,13 +44,13 @@ def resize():
     return albu.Compose(transform)
 
 
-def main(config):
+def main(config, val_num):
     # set dataset path
-    x_train_dir = os.path.join(config.DATA_DIR, 'train', config.SEASON, '*/movieframe')
-    y_train_dir = os.path.join(config.DATA_DIR, 'train', config.SEASON, '*/label')
-
-    x_valid_dir = os.path.join(config.DATA_DIR, 'validation', config.SEASON, '*/movieframe')
-    y_valid_dir = os.path.join(config.DATA_DIR, 'validation', config.SEASON, '*/label')
+    x_valid_dir = os.path.join(config.DATA_DIR, f'valid_{val_num}', '*/movieframe')
+    y_valid_dir = os.path.join(config.DATA_DIR, f'valid_{val_num}', '*/label')
+    # validationで使った以外
+    x_train_dir = os.path.join(config.DATA_DIR, f'valid_[!{val_num}]', '*/movieframe')
+    y_train_dir = os.path.join(config.DATA_DIR, f'valid_[!{val_num}]', '*/label')
 
     # create segmentation model with pretrained encoder
     model = getattr(smp, config.MODEL)(
@@ -207,10 +208,10 @@ def main(config):
 
 @dataclass
 class Config:
-    RESULT_DIR: str = '/data/result/IMA_root/season5/smp/cv1'
+    RESULT_ROOT_DIR: str = '/data/result/IMA_root/season5/smp/deeplabv3p_resnest269_da_cv'
+    RESULT_DIR: Optional[str] = None
 
-    DATA_DIR: str = '/data/input/IMA_root'
-    SEASON: str = 'season5*'
+    DATA_DIR: str = '/data/input/IMA_root/train/season5/cv'
 
     CLASSES: Union[list, dict] = field(default_factory=dict)
     N_CLASSES: int = 1 + 1
@@ -250,11 +251,14 @@ if __name__ == "__main__":
     torch.manual_seed(0)
 
     config = Config()
-    # make save directory
-    os.makedirs(config.RESULT_DIR, exist_ok=True)
-    # save train params as yaml
-    with open(os.path.join(config.RESULT_DIR, 'parameters.yml'), 'w') as fw:
-        pprint(asdict(config))  # show config
-        fw.write(yaml.dump(asdict(config)))
-    # fit
-    main(config)
+
+    for i in range(1, 6, 1):
+        # make save directory
+        config.RESULT_DIR = os.path.join(config.RESULT_ROOT_DIR, f'CV{i}')
+        os.makedirs(config.RESULT_DIR, exist_ok=True)
+        # save train params as yaml
+        with open(os.path.join(config.RESULT_DIR, 'parameters.yml'), 'w') as fw:
+            pprint(asdict(config))  # show config
+            fw.write(yaml.dump(asdict(config)))
+        # fit
+        main(config, i)
