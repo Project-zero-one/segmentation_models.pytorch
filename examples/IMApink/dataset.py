@@ -29,7 +29,7 @@ class Dataset(BaseDataset):
             # classname mapが名前とclass idの場合
             self.class_values = {self.CLASSES[cls]: v for cls, v in classes.items()}
         else:
-            assert "classes's type dict or list only"
+            assert "A type of classes is dict or list only"
 
         self.augmentation = augmentation
         self.preprocessing = preprocessing

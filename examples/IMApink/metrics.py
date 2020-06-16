@@ -1,6 +1,8 @@
+import os
+import numpy as np
 import torch
 from tqdm import tqdm
-from utils import take_channels
+from matplotlib import pyplot as plt
 
 
 def confusion_matrix(y_pred, y_true):
@@ -17,23 +19,33 @@ def confusion_matrix(y_pred, y_true):
     return {'tp': tp, 'fp': fp, 'fn': fn}
 
 
-def calculate_dice(dataloader, model, device, ignore_channels=None):
-    tp, fp, fn = 0, 0, 0
+def calculate_dice_per_class(dataloader, num_classes, model, device):
+    tp, fp, fn = [np.zeros(num_classes) for _ in range(3)]
     for batch_x, batch_y in tqdm(dataloader):
         x_tensor = batch_x.to(device)
-        y_pred = model.predict(x_tensor)
-        # 背景を計算に入れない
-        y_pred, y_true = take_channels(y_pred, batch_y, ignore_channels=ignore_channels)
-        # channel次元を消す
-        y_pred = y_pred.squeeze(1).cpu().round()
-        y_true = y_true.squeeze(1)
+        y_pred = model.predict(x_tensor)  # N,C,H,W
 
-        conf = confusion_matrix(y_pred, y_true)
-        tp += conf['tp']
-        fp += conf['fp']
-        fn += conf['fn']
+        # 各classごとに、batchでまとめてtp,fp,fnを計算
+        for c in range(batch_x.shape[1]):
+            # N,H,W
+            conf = confusion_matrix(y_pred[:, c], batch_y[:, c])
+            tp[c] += conf['tp']
+            fp[c] += conf['fp']
+            fn[c] += conf['fn']
 
-    dice_of_all = 2 * tp / (2 * tp + fp + fn)
-    print(f"validation dice: {dice_of_all:.4f}")
+    # classの次元のままbroadcast
+    dice_per_class = 2 * tp / (2 * tp + fp + fn)
+    np.set_printoptions(precision=4)
+    print(f"validation dice: {dice_per_class}")
 
-    return dice_of_all
+    return dice_per_class
+
+
+def plot_logs(logs: dict, objective: str, save_path: str):
+    plt.figure()
+    plt.plot(logs['epoch'], logs[objective], label='train_' + objective)
+    plt.plot(logs['epoch'], logs['val_' + objective], label='val_' + objective)
+    plt.legend()
+    plt.xlabel('epochs')
+    plt.ylabel(objective)
+    plt.savefig(os.path.join(save_path, objective + '.png'))

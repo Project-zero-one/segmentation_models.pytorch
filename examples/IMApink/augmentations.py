@@ -15,6 +15,7 @@
 import numpy as np
 from PIL import Image, ImageOps, ImageEnhance
 from albumentations.core.transforms_interface import ImageOnlyTransform
+from albumentations.core.transforms_interface import DualTransform
 
 """Base augmentations operators."""
 
@@ -218,3 +219,16 @@ class RandomAugMix(ImageOnlyTransform):
             self.alpha
         )
         return image
+
+
+class CutOff(DualTransform):
+    """画面の左右の黒帯を取り除く
+    """
+
+    def __init__(self, width, always_apply=False, p=1.):
+        super().__init__(always_apply, p)
+        self.width = width
+
+    def apply(self, image, **params):
+        # 左右5%が黒帯
+        return image[:, int(self.width * 0.05):int(self.width * 0.95)]

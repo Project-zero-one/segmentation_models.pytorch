@@ -12,6 +12,7 @@ import segmentation_models_pytorch as smp
 
 from dataset import VideoDataset
 from utils import get_preprocessing, palettes
+from augmentations import CutOff
 
 
 def resize():
@@ -19,6 +20,15 @@ def resize():
         albu.Resize(height=256, width=512)
     ]
     return albu.Compose(transform)
+
+
+def get_validation_augmentation():
+    test_transform = [
+        CutOff(width=1280, always_apply=True),
+        albu.Resize(height=320, width=512),  # 350, 560
+        albu.CenterCrop(height=256, width=512, always_apply=True)
+    ]
+    return albu.Compose(test_transform)
 
 
 class FPS(object):
@@ -63,7 +73,7 @@ def make_predict_movie(
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
     out = cv2.VideoWriter(save_path, fourcc, 30.0, (1280, 720))
     # for calculate frame per second
-    fps = FPS()
+    # fps = FPS()
     for raw_frame, input_image in tqdm(dataloader):
         # frame読み切ったら抜ける
         if raw_frame is None:
@@ -77,7 +87,7 @@ def make_predict_movie(
         # N,H,W,C -> H,W,C
         output = overlay(raw_frame.cpu().numpy().squeeze(0), result)  # blend
         # output = surrounding(raw_frame.cpu().numpy().squeeze(0), result)  # 枠線
-        fps.calculate(output)  # video writeする前に必要
+        # fps.calculate(output)  # video writeする前に必要
         out.write(output[..., ::-1])  # RGB -> BGR
     out.release()
 
@@ -159,9 +169,9 @@ if __name__ == "__main__":
     ### config ###
     ENCODER = 'resnest269'
     ENCODER_WEIGHTS = 'imagenet'
-    MODEL_PATH = 'results/pan-resnest269_categoricalloss.pth'
-    VIDEO_PATH = '/data/input/IMA_root/test/名称未設定_01.mp4'
-    SAVE_PATH = 'results/名称未設定_01.avi'
+    MODEL_PATH = 'results/deeplab_resnest269_DA/deeplabv3p-resnest269_multiclass_da.pth'
+    VIDEO_PATH = '/data/input/IMA_root/test/aviにしないで.mp4'
+    SAVE_PATH = 'results/deeplab_resnest269_DA/aviにしてない.mp4'
 
     DEVICE = 'cuda'
     AREA_THRESHOLD = 512 * 256 * 0.05
@@ -174,7 +184,7 @@ if __name__ == "__main__":
 
     test_dataset = VideoDataset(
         VIDEO_PATH,
-        augmentation=resize(),
+        augmentation=get_validation_augmentation(),
         preprocessing=get_preprocessing(preprocessing_fn),
     )
     test_loader = DataLoader(test_dataset)
