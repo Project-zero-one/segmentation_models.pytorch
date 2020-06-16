@@ -24,9 +24,10 @@ def calculate_dice_per_class(dataloader, num_classes, model, device):
     for batch_x, batch_y in tqdm(dataloader):
         x_tensor = batch_x.to(device)
         y_pred = model.predict(x_tensor)  # N,C,H,W
+        y_pred = y_pred.cpu().round()  # GPU->CPU
 
         # 各classごとに、batchでまとめてtp,fp,fnを計算
-        for c in range(batch_x.shape[1]):
+        for c in range(batch_y.shape[1]):
             # N,H,W
             conf = confusion_matrix(y_pred[:, c], batch_y[:, c])
             tp[c] += conf['tp']
@@ -40,12 +41,3 @@ def calculate_dice_per_class(dataloader, num_classes, model, device):
 
     return dice_per_class
 
-
-def plot_logs(logs: dict, objective: str, save_path: str):
-    plt.figure()
-    plt.plot(logs['epoch'], logs[objective], label='train_' + objective)
-    plt.plot(logs['epoch'], logs['val_' + objective], label='val_' + objective)
-    plt.legend()
-    plt.xlabel('epochs')
-    plt.ylabel(objective)
-    plt.savefig(os.path.join(save_path, objective + '.png'))

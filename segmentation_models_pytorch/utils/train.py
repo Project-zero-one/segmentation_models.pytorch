@@ -61,7 +61,8 @@ class Epoch:
                 # update loss logs
                 loss_value = loss.cpu().detach().numpy()
                 loss_meter.add(loss_value)
-                loss_logs = {self.loss.__name__: loss_meter.mean}
+                # loss_logs = {self.loss.__name__: loss_meter.mean}
+                loss_logs = {'loss': loss_meter.mean}  # 独自のloss
                 self.logs.update(loss_logs)
 
                 # update metrics logs

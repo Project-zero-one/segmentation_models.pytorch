@@ -4,6 +4,7 @@ from typing import List, Union, Optional
 import yaml
 
 import numpy as np
+import pandas as pd
 from matplotlib import pyplot as plt
 import torch
 from torch.utils.data import DataLoader
@@ -12,8 +13,8 @@ import segmentation_models_pytorch as smp
 
 from dataset import Dataset
 import losses
-from metrics import calculate_dice_per_class, plot_logs
-from utils import get_preprocessing
+from metrics import calculate_dice_per_class
+from utils import get_preprocessing, plot_logs
 from augmentations import CutOff
 
 
@@ -139,8 +140,9 @@ def main(config):
         'val_metrics': [],
     }
 
+    # callbacks用
     max_score = 0
-    dice_per_class = np.zeros((1, config.N_CLASSES))  # validation用
+    dice_per_class = np.zeros((0, config.N_CLASSES))
 
     for i in range(0, config.EPOCHS):
 
@@ -156,7 +158,7 @@ def main(config):
                 valid_loader,
                 config.N_CLASSES,
                 model, config.DEVICE,
-            ),
+            )[np.newaxis],
             axis=0
         )
 
@@ -180,15 +182,24 @@ def main(config):
         loggers['metrics'].append(train_logs['fscore'])
         loggers['val_metrics'].append(valid_logs['fscore'])
 
+        # save logs to csv
+        df = pd.DataFrame(loggers)
+        df.to_csv(os.path.join(config.RESULT_DIR, 'logs.csv'), index=False)
+
         # plot logs
         plot_logs(loggers, 'loss', config.RESULT_DIR)
+        plot_logs(loggers, 'metrics', config.RESULT_DIR)
 
         # plot validation dice coef. per class
         plt.figure()
         for c in range(dice_per_class.shape[1]):
             plt.plot(loggers['epoch'], dice_per_class[:, c], label=str(c))
         plt.legend()
+        plt.grid()
+        plt.xlabel('Epochs')
+        plt.ylabel('Dice')
         plt.savefig(os.path.join(config.RESULT_DIR, 'dice_per_class.png'))
+        plt.close()
 
     # save last epoch model
     torch.save(model, os.path.join(config.RESULT_DIR, 'last_model.pth'))
@@ -196,7 +207,7 @@ def main(config):
 
 @dataclass
 class Config:
-    RESULT_DIR: str = 'results/cv'
+    RESULT_DIR: str = '/data/result/IMA_root/season5/smp/cv_kitaguchi'
 
     DATA_DIR: str = '/data/input/IMA_root'
     SEASON: str = 'season5*'
@@ -242,8 +253,8 @@ if __name__ == "__main__":
     # make save directory
     os.makedirs(config.RESULT_DIR, exist_ok=True)
     # save train params as yaml
-    with open('parameters.yml', 'w') as fw:
+    with open(os.path.join(config.RESULT_DIR, 'parameters.yml'), 'w') as fw:
         pprint(asdict(config))  # show config
-        fw.write(os.path.join(config.RESULT_DIR, yaml.dump(asdict(config))))
+        fw.write(yaml.dump(asdict(config)))
     # fit
     main(config)

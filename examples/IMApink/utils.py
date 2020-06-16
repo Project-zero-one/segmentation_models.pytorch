@@ -60,6 +60,18 @@ def denormalize(x):
     return x
 
 
+def plot_logs(logs: dict, objective: str, save_path: str):
+    plt.figure()
+    plt.plot(logs['epoch'], logs[objective], label='train_' + objective)
+    plt.plot(logs['epoch'], logs['val_' + objective], label='val_' + objective)
+    plt.grid()
+    plt.legend()
+    plt.xlabel('epochs')
+    plt.ylabel(objective)
+    plt.savefig(os.path.join(save_path, objective + '.png'))
+    plt.close()
+
+
 palettes = [0, 0, 0,
             128, 0, 0,
             0, 128, 0,
