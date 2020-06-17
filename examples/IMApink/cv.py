@@ -191,7 +191,10 @@ def main(config, val_num):
         plot_logs(loggers, 'loss', config.RESULT_DIR)
         plot_logs(loggers, 'metrics', config.RESULT_DIR)
 
-        # plot validation dice coef. per class
+        # plot validation dice coef. per class and save as csv
+        df = pd.DataFrame(dice_per_class)
+        df.to_csv(os.path.join(config.RESULT_DIR, 'dice_per_class.csv'))
+
         plt.figure()
         for c in range(dice_per_class.shape[1]):
             plt.plot(loggers['epoch'], dice_per_class[:, c], label=str(c))

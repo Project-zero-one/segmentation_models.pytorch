@@ -8,7 +8,7 @@ import segmentation_models_pytorch as smp
 
 from dataset import Dataset
 import losses
-from metrics import calculate_dice
+from metrics import calculate_dice_per_class
 from utils import visualize, denormalize, get_preprocessing
 
 
@@ -75,11 +75,12 @@ if __name__ == "__main__":
     )
 
     # logs = test_epoch.run(test_loader)
-    dice_of_all = calculate_dice(test_loader, best_model, DEVICE, ignore_channels=[0] if N_CLASSES != 1 else None)
+    dice_per_class = calculate_dice_per_class(test_loader, best_model, DEVICE, ignore_channels=[0] if N_CLASSES != 1 else None)
 
     # visualize test data
     image_batch = []
     gt_mask_batch = []
+    # choose image and label from dataset at random
     for i in range(NUM_VIS):
         n = np.random.choice(len(test_dataset))
         image, gt_mask = test_dataset[n]
@@ -93,7 +94,7 @@ if __name__ == "__main__":
     pr_mask_batch = best_model.predict(x_tensor)
 
     pr_mask_batch = pr_mask_batch.cpu().numpy().round()
-    image_batch = image_batch.transpose(0, 2, 3, 1)
+    image_batch = image_batch.transpose(0, 2, 3, 1)  # N,C,H,W -> N,H,W,C
 
     visualize(
         image=denormalize(image_batch),
